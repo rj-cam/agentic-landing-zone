@@ -6,27 +6,15 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    AWS Organizations                         │
-│                   (Management Account)                       │
-│         SCPs │ IAM Identity Center │ Route 53               │
-├──────────────┬──────────────┬───────────────────────────────┤
-│ Security OU  │ Shared Svc OU│        Workloads OU           │
-│ ┌──────────┐ │ ┌──────────┐ │ ┌───────────┐ ┌────────────┐ │
-│ │ Security │ │ │ Shared   │ │ │ Non-Prod  │ │ Prod       │ │
-│ │ Account  │ │ │ Services │ │ │ Account   │ │ Account    │ │
-│ │          │ │ │          │ │ │           │ │            │ │
-│ │CloudTrail│ │ │Transit GW│ │ │VPC        │ │VPC         │ │
-│ │Aggregator│ │ │ECR       │ │ │ECS Fargate│ │ECS Fargate │ │
-│ └──────────┘ │ │OIDC      │ │ │ALB        │ │ALB         │ │
-│ ┌──────────┐ │ └──────────┘ │ └───────────┘ └────────────┘ │
-│ │Log Archv │ │              │                               │
-│ │Account   │ │              │  nonprod.therj.link            │
-│ │S3 (immut)│ │              │  prod.therj.link               │
-│ └──────────┘ │              │                               │
-└──────────────┴──────────────┴───────────────────────────────┘
-```
+![AWS Landing Zone Reference Architecture](docs/aws_lz_reference_architecture.svg)
+
+### Setup Phases
+
+![Landing Zone Setup Phases](docs/aws_lz_setup_phases.svg)
+
+For detailed architecture decisions, trade-offs, and AWS-to-Azure equivalences,
+see [ARCHITECTURE.md](ARCHITECTURE.md) (9 ADRs covering multi-account strategy,
+networking, VPC microsegmentation, VPC endpoints, SCPs, OIDC, and Terraform design).
 
 ---
 
@@ -226,8 +214,11 @@ agentic-landing-zone/
 │       ├── main.tf                     # Production ECS Fargate, ALB, DNS
 │       ├── variables.tf / outputs.tf / providers.tf / backend.tf
 │       └── README.md
-├── ARCHITECTURE.md                     # Architecture Decision Records (ADRs)
-├── CLAUDE_CODE_LOG.md                  # AI-augmented development log
+├── docs/
+│   ├── aws_lz_reference_architecture.svg  # Architecture diagram
+│   └── aws_lz_setup_phases.svg            # Phase 0/1/2 setup flow
+├── ARCHITECTURE.md                     # Architecture Decision Records (9 ADRs)
+├── CLAUDE_CODE_LOG.md                  # AI-augmented development log + lessons learned
 ├── .gitignore
 └── README.md                           # This file
 ```
