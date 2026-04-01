@@ -87,7 +87,7 @@ for the full checklist.
 
    docker buildx build --platform linux/arm64 --push \
      -t <shared-services-account-id>.dkr.ecr.ap-southeast-1.amazonaws.com/landing-zone/httpd:latest \
-     ./docker
+     ./sample-workload
    ```
 
 5. **Provision the workload layers**
@@ -100,8 +100,8 @@ for the full checklist.
 6. **Verify the deployment**
 
    ```bash
-   curl http://nonprod.therj.link
-   curl http://prod.therj.link
+   curl https://nonprod.therj.link
+   curl https://prod.therj.link
    ```
 
 ---
@@ -235,22 +235,34 @@ Six Service Control Policies enforce preventive guardrails across the organizati
 | `deny-root` | Root OU | All actions by the root user in any member account |
 | `require-s3-encryption` | Root OU | S3 PutObject without server-side encryption (AES256/aws:kms) and non-HTTPS S3 requests |
 | `require-ebs-encryption` | Root OU | Launching EC2 instances with unencrypted EBS volumes |
-| `protect-log-archive` | Log Archive Account | Deletion or policy changes on the centralised Log Archive S3 bucket |
+| `protect-log-archive` | Log Archive Account | Deletion of the centralised Log Archive S3 bucket and its objects |
 | `require-prod-tagging` | Prod OU | Resource creation without `Environment`, `Owner`, and `CostCenter` tags |
 
 **Preventive vs Detective controls:** SCPs are *preventive* -- they stop non-compliant actions before they happen. No non-compliant resource ever exists. Detective controls (AWS Config Rules, Security Hub) complement this by auditing existing state and detecting drift. This implementation prioritises preventive controls; detective controls are recommended as a production enhancement.
+
+### Additional Security Hardening
+
+| Control | Scope | What It Does |
+|---------|-------|-------------|
+| S3 deny HTTP | State bucket + Log Archive | Rejects any S3 request not using TLS |
+| ECS exec disabled | All ECS services | Prevents interactive shell access to running containers |
+| Default EBS encryption | Shared Services, Non-Prod, Prod | All new EBS volumes encrypted by default (account-level) |
+| TLS 1.3 on ALBs | All internet-facing ALBs | Enforces modern TLS with HTTP→HTTPS redirect (ADR-010) |
+| IMDSv2 enforcement | Root OU (SCP) | Blocks EC2 instances without IMDSv2 token requirement |
+| No NAT Gateway | All workload VPCs | Private subnets have no internet route — AWS access via VPC Endpoints only (ADR-008) |
 
 ---
 
 ## Networking
 
-The networking layer implements a **hub-and-spoke** topology:
+The networking layer implements a **hub-and-spoke** topology with **5-tier VPC microsegmentation** (ADR-009):
 
-- **Hub:** Transit Gateway (TGW) provisioned in the Shared Services account, shared to the organization via AWS Resource Access Manager (RAM).
-- **Spokes:** Each workload account (Non-Prod, Prod) has its own VPC that attaches to the Transit Gateway.
-- **Routing:** Private subnets route `10.0.0.0/8` traffic through the Transit Gateway for cross-account communication. Internet-bound traffic routes through a NAT Gateway in each VPC.
-- **Public access:** Application Load Balancers sit in public subnets and forward traffic to ECS Fargate tasks running in private subnets.
-- **DNS:** Route 53 hosted zone in the Management account with cross-account IAM roles allowing workload accounts to create records (`nonprod.therj.link`, `prod.therj.link`).
+- **Hub:** Transit Gateway (TGW) in the Shared Services account, shared via RAM.
+- **Spokes:** Each workload VPC uses dual CIDRs (/24 infra + /21 workloads) with 18 subnets across 3 AZs.
+- **Subnet tiers:** TGW (/28) → Web ALB (/27, public) → App Endpoint (/27, VPC endpoints) → App Compute (/23, ECS tasks) → Data (/27, reserved for RDS). Traffic flow enforced by NACLs.
+- **No NAT Gateway:** All AWS service access via VPC Endpoints (ADR-008) — ECR, ECS, CloudWatch Logs, STS, S3. Traffic stays on the AWS backbone.
+- **HTTPS:** ALBs terminate TLS 1.3 (ADR-010) with ACM certificates. HTTP redirects to HTTPS.
+- **DNS:** Route 53 in the Management account with cross-account IAM role for workload DNS records (`nonprod.therj.link`, `prod.therj.link`).
 
 ---
 
@@ -280,18 +292,20 @@ See [`CLAUDE_CODE_LOG.md`](CLAUDE_CODE_LOG.md) for the full development log, inc
 
 The following enhancements are recommended before using this reference architecture for production workloads:
 
-- **Security Hub** -- Enable across all accounts for continuous compliance posture assessment (CIS, PCI-DSS, AWS Foundational benchmarks)
-- **GuardDuty** -- Enable for intelligent threat detection across accounts (anomalous API calls, compromised credentials, cryptocurrency mining)
+- **Security Hub** -- Enable across all accounts for continuous compliance posture assessment (CIS, PCI-DSS, AWS Foundational benchmarks). Free 30-day trial.
+- **GuardDuty** -- Enable for intelligent threat detection across accounts (anomalous API calls, compromised credentials, cryptocurrency mining). Free 30-day trial.
 - **AWS Config Rules** -- Deploy detective controls to complement SCPs (detect drift, audit resource configurations)
+- **AWS WAF** -- Attach Web Application Firewall rules to ALBs for OWASP Top 10 protection, rate limiting, and geo-blocking
 - **Account vending machine** -- Automate new account creation with pre-configured guardrails using AWS Control Tower or a custom Terraform pipeline
 - **Break-glass IAM user** -- Create an emergency access path that bypasses Identity Center for disaster recovery scenarios
 - **SAML/OIDC federation** -- Integrate IAM Identity Center with your corporate identity provider (Okta, Azure AD/Entra ID, Ping)
-- **ArgoCD or Flux** -- Replace ECS with EKS and adopt GitOps-based continuous delivery for Kubernetes workloads
-- **ACM certificates + HTTPS** -- Provision TLS certificates via AWS Certificate Manager and terminate HTTPS at the ALB
-- **AWS WAF** -- Attach Web Application Firewall rules to ALBs for OWASP Top 10 protection, rate limiting, and geo-blocking
+- **SSM VPC Endpoints** -- Add `ssm`, `ssmmessages`, `ec2messages` endpoints when introducing EC2 instances for Systems Manager patching
 - **VPC Flow Logs** -- Enable flow logs on all VPCs and deliver to the centralised Log Archive for network forensics
+- **ArgoCD or Flux** -- Replace ECS with EKS and adopt GitOps-based continuous delivery for Kubernetes workloads
 - **Multi-region DR** -- Replicate critical infrastructure (S3, DynamoDB state) to a secondary region for disaster recovery
 - **FinOps** -- Enable Cost Explorer, evaluate Savings Plans / Reserved Instances for steady-state workloads, enforce cost allocation tags via SCPs
+
+**Already implemented in this reference:** HTTPS with TLS 1.3 (ADR-010), VPC Endpoints replacing NAT Gateway (ADR-008), VPC microsegmentation with NACLs (ADR-009), S3 deny-HTTP policy, ECS exec disabled, default EBS encryption, 6 SCPs, cross-account OIDC CI/CD.
 
 ---
 

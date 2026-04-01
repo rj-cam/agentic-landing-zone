@@ -11,6 +11,8 @@
 | 2026-04-01 | Foundation provisioning | Applied all 6 foundation layers to AWS. Fixed issues discovered during apply. | Auto-wire account IDs from org outputs, import org as managed resource |
 | 2026-04-01 | Architecture hardening | Replaced NAT Gateway with VPC Endpoints (ADR-008). Redesigned VPC to 5-tier, 3-AZ, dual-CIDR microsegmentation (ADR-009). | /24 + /21 CIDRs, NACLs per tier, compute_az_count variable |
 | 2026-04-01 | Workload provisioning | Built ARM64 Docker image, pushed to ECR, provisioned both nonprod and prod. Fixed NACL and DNS issues. | S3 gateway endpoint needs open NACL rules, SSM endpoints deferred |
+| 2026-04-01 | HTTPS + hardening | Added ACM certs with DNS validation, HTTPS listeners with TLS 1.3, HTTP→HTTPS redirect. S3 deny-HTTP, ECS exec disabled, default EBS encryption. | ADR-010 for TLS 1.3 enforcement, zero-cost ACM certs |
+| 2026-04-01 | Documentation + diagrams | SVG architecture diagrams with implemented/planned visual distinction. Updated README with security hardening table, networking section, production considerations. | Dimmed opacity for unimplemented aspirational components |
 
 ## Lessons Learned — AWS
 
