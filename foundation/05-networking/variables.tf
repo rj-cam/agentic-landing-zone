@@ -9,16 +9,6 @@ variable "shared_services_account_id" {
   type        = string
 }
 
-variable "nonprod_account_id" {
-  description = "AWS account ID for the Non-Production account"
-  type        = string
-}
-
-variable "prod_account_id" {
-  description = "AWS account ID for the Production account"
-  type        = string
-}
-
 variable "hosted_zone_id" {
   description = "Route 53 hosted zone ID for the domain"
   type        = string

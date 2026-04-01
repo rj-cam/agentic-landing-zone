@@ -9,3 +9,7 @@ data "terraform_remote_state" "organization" {
 }
 
 data "aws_organizations_organization" "current" {}
+
+locals {
+  account_ids = data.terraform_remote_state.organization.outputs.account_ids
+}

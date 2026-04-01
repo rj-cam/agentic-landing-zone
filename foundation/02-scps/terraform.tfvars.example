@@ -1,8 +1,0 @@
-# Required: Log Archive account ID for the protect-log-archive SCP
-log_archive_account_id = "123456789012"
-
-# Required: Log Archive S3 bucket ARN
-log_archive_bucket_arn = "arn:aws:s3:::landing-zone-cloudtrail-logs"
-
-# Optional: Override the default region (default: ap-southeast-1)
-# aws_region = "ap-southeast-1"

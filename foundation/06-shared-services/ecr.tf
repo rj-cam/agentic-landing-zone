@@ -65,8 +65,8 @@ resource "aws_ecr_repository_policy" "cross_account_pull" {
         Effect = "Allow"
         Principal = {
           AWS = [
-            "arn:aws:iam::${var.nonprod_account_id}:root",
-            "arn:aws:iam::${var.prod_account_id}:root"
+            "arn:aws:iam::${local.account_ids["nonprod"]}:root",
+            "arn:aws:iam::${local.account_ids["prod"]}:root"
           ]
         }
         Action = [

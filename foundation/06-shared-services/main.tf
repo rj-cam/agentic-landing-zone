@@ -11,3 +11,7 @@ data "terraform_remote_state" "organization" {
     region = "ap-southeast-1"
   }
 }
+
+locals {
+  account_ids = data.terraform_remote_state.organization.outputs.account_ids
+}

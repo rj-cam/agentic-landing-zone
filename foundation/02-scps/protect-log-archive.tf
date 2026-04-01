@@ -20,12 +20,12 @@ module "protect_log_archive" {
           "s3:PutBucketPolicy"
         ]
         Resource = [
-          var.log_archive_bucket_arn,
-          "${var.log_archive_bucket_arn}/*"
+          "arn:aws:s3:::landing-zone-cloudtrail-logs",
+          "arn:aws:s3:::landing-zone-cloudtrail-logs/*"
         ]
       }
     ]
   })
 
-  target_ids = [var.log_archive_account_id]
+  target_ids = [local.log_archive_account_id]
 }

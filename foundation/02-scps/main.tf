@@ -17,6 +17,8 @@ data "terraform_remote_state" "organization" {
 ###############################################################################
 
 locals {
-  root_id = data.terraform_remote_state.organization.outputs.root_id
-  ou_ids  = data.terraform_remote_state.organization.outputs.ou_ids
+  root_id                = data.terraform_remote_state.organization.outputs.root_id
+  ou_ids                 = data.terraform_remote_state.organization.outputs.ou_ids
+  account_ids            = data.terraform_remote_state.organization.outputs.account_ids
+  log_archive_account_id = local.account_ids["log_archive"]
 }

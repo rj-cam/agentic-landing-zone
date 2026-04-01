@@ -9,16 +9,6 @@ variable "shared_services_account_id" {
   type        = string
 }
 
-variable "nonprod_account_id" {
-  description = "AWS account ID for the non-production account"
-  type        = string
-}
-
-variable "prod_account_id" {
-  description = "AWS account ID for the production account"
-  type        = string
-}
-
 variable "github_org" {
   description = "GitHub username/org"
   type        = string
