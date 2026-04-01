@@ -2,7 +2,20 @@
 # Data source — reference existing AWS Organization (enabled in Phase 0)
 ###############################################################################
 
-data "aws_organizations_organization" "current" {}
+###############################################################################
+# AWS Organization — imported from Phase 0, now Terraform-managed
+###############################################################################
+
+resource "aws_organizations_organization" "current" {
+  aws_service_access_principals = [
+    "cloudtrail.amazonaws.com",
+    "sso.amazonaws.com",
+  ]
+  enabled_policy_types = [
+    "SERVICE_CONTROL_POLICY",
+  ]
+  feature_set = "ALL"
+}
 
 ###############################################################################
 # Organizational Units
@@ -10,17 +23,17 @@ data "aws_organizations_organization" "current" {}
 
 resource "aws_organizations_organizational_unit" "security" {
   name      = "Security"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.current.roots[0].id
 }
 
 resource "aws_organizations_organizational_unit" "shared_services" {
   name      = "Shared Services"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.current.roots[0].id
 }
 
 resource "aws_organizations_organizational_unit" "workloads" {
   name      = "Workloads"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.current.roots[0].id
 }
 
 resource "aws_organizations_organizational_unit" "nonprod" {

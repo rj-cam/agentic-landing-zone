@@ -32,11 +32,32 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
 
 ## Prerequisites
 
-- **AWS account** with Organizations enabled
+### Tools
+
 - **Terraform** >= 1.5
 - **AWS CLI** v2
-- **Docker** (for building container images)
-- **Phase 0 bootstrap completed** -- see [`foundation/00-bootstrap/README.md`](foundation/00-bootstrap/README.md)
+- **Docker** with Buildx (for building ARM64 container images)
+
+### AWS manual setup (one-time, before running any Terraform)
+
+These steps cannot be fully automated and must be completed via the AWS Console
+or CLI. See [`foundation/00-bootstrap/README.md`](foundation/00-bootstrap/README.md)
+for the full checklist.
+
+1. **AWS Organizations** — Enable "All features" on the management account
+2. **S3 state bucket** — Create `rj-landing-zone-tfstate` (ap-southeast-1,
+   versioning enabled, public access blocked)
+3. **DynamoDB lock table** — Create `rj-landing-zone-tflock` (PAY_PER_REQUEST)
+4. **IAM Identity Center** — Enable via AWS Console → IAM Identity Center →
+   "Enable with AWS Organizations" (this **cannot** be done via CLI/API for
+   the management account — AWS requires Console enablement)
+5. **Root MFA** — Enable MFA on the management account root user
+6. **Route 53 hosted zone** — `therj.link` must exist (or update variables
+   for your domain)
+
+> **Note:** The provisioning scripts automatically extract account IDs from
+> `foundation/01-organization` outputs — no manual account ID configuration
+> is needed. SCP policy type enablement and CloudTrail are managed by Terraform.
 
 ---
 
@@ -45,7 +66,7 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/<your-org>/agentic-landing-zone.git
+   git clone https://github.com/rj-cam/agentic-landing-zone.git
    cd agentic-landing-zone
    ```
 
@@ -56,26 +77,17 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
    export AWS_PROFILE=management
    ```
 
-3. **Set account ID variables**
+3. **Provision the foundation layers**
 
-   Create a `terraform.tfvars` file in each layer, or export environment variables:
-
-   ```bash
-   export TF_VAR_security_account_id="111111111111"
-   export TF_VAR_log_archive_account_id="222222222222"
-   export TF_VAR_shared_services_account_id="333333333333"
-   export TF_VAR_nonprod_account_id="444444444444"
-   export TF_VAR_prod_account_id="555555555555"
-   ```
-
-4. **Provision the foundation layers**
+   Account IDs are auto-extracted from `01-organization` outputs and passed
+   to downstream layers — no manual variable configuration needed.
 
    ```bash
    ./scripts/provision-foundation.sh       # Linux/macOS
-   ./scripts/provision-foundation.bat      # Windows
+   scripts\provision-foundation.bat        # Windows
    ```
 
-5. **Build and push the Docker image to ECR**
+4. **Build and push the Docker image to ECR**
 
    ```bash
    aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin <shared-services-account-id>.dkr.ecr.ap-southeast-1.amazonaws.com
@@ -85,14 +97,14 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
      ./docker
    ```
 
-6. **Provision the workload layers**
+5. **Provision the workload layers**
 
    ```bash
    ./scripts/provision-workloads.sh        # Linux/macOS
    ./scripts/provision-workloads.bat       # Windows
    ```
 
-7. **Verify the deployment**
+6. **Verify the deployment**
 
    ```bash
    curl http://nonprod.therj.link

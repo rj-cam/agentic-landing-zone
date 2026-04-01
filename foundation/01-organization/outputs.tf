@@ -4,12 +4,12 @@
 
 output "organization_id" {
   description = "The ID of the AWS Organization"
-  value       = data.aws_organizations_organization.current.id
+  value       = aws_organizations_organization.current.id
 }
 
 output "root_id" {
   description = "The ID of the organization root"
-  value       = data.aws_organizations_organization.current.roots[0].id
+  value       = aws_organizations_organization.current.roots[0].id
 }
 
 ###############################################################################
