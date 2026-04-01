@@ -288,6 +288,58 @@ See [`CLAUDE_CODE_LOG.md`](CLAUDE_CODE_LOG.md) for the full development log, inc
 
 ---
 
+## Screenshots & Demos
+
+### AWS Organizations Hierarchy
+
+![Organizations Hierarchy](docs/01-organizations-hierarchy.png)
+
+5 OUs, 5 member accounts, all managed by Terraform.
+
+### Sample Workload — Non-Production
+
+![Non-Prod Response](docs/02-nonprod-response.png)
+
+httpd on ECS Fargate ARM64/Graviton, served over HTTPS with TLS 1.3.
+
+### Sample Workload — Production
+
+![Prod Response](docs/03-prod-response.png)
+
+Same architecture, different environment badge. 2 tasks for HA.
+
+### VPC Microsegmentation (Non-Prod)
+
+![Non-Prod VPC](docs/04-nonprod-vpc.png)
+
+5-tier subnet architecture: TGW, Web ALB, Web NLB, App Endpoint, App Compute, Data — across 3 AZs with dual CIDRs (/24 + /21).
+
+### ECS Fargate Service
+
+![Non-Prod ECS](docs/05-nonprod-ecs.png)
+
+ARM64/Graviton tasks running in the app compute tier with VPC endpoint connectivity.
+
+### Application Load Balancer
+
+![Non-Prod ALB](docs/06-nonprod-alb.png)
+
+HTTPS listener with TLS 1.3, HTTP→HTTPS redirect, health checks on the web ALB tier.
+
+### Provision & Teardown Timelapses
+
+Workload provisioning (40x speed — ~5 min real time):
+
+https://github.com/user-attachments/assets/provision-workloads
+
+> See [`docs/10-provision-workloads-40x.mp4`](docs/10-provision-workloads-40x.mp4)
+
+Workload teardown (40x speed — ~5 min real time):
+
+> See [`docs/11-teardown-workloads-40x.mp4`](docs/11-teardown-workloads-40x.mp4)
+
+---
+
 ## Production Considerations
 
 The following enhancements are recommended before using this reference architecture for production workloads:
