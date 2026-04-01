@@ -108,6 +108,54 @@ This document captures the key architectural decisions made for the Agentic Land
 
 ---
 
+## ADR-009: VPC Microsegmentation — 5-Tier Subnet Architecture
+
+**Status:** Accepted
+
+**Context:** A flat VPC with only "public" and "private" subnets provides no network-level isolation between application tiers. In regulated environments (banking, finance), compliance frameworks require defense-in-depth with network segmentation so that a compromise in the web tier cannot directly reach the data tier. The design is based on a production-proven subnet layout used in banking deployments.
+
+**Decision:** Implement a 5-tier subnet architecture across 3 AZs using dual VPC CIDRs:
+
+```
+CIDR 1 (/24) — Infrastructure          CIDR 2 (/21) — Workloads
+┌──────────────────────────┐            ┌──────────────────────────┐
+│ TGW         /28 × 3 AZs │            │ App Endpoint /27 × 3 AZs │
+│ Web ALB     /27 × 3 AZs │            │ Data         /27 × 3 AZs │
+│ Web NLB     /27 × 3 AZs │            │ App Compute  /23 × 3 AZs │
+└──────────────────────────┘            └──────────────────────────┘
+```
+
+| Tier | Subnets | Purpose | NACL policy |
+|------|---------|---------|-------------|
+| **TGW** | /28 × 3 | Transit Gateway ENIs only | Allow 10.0.0.0/8 (cross-VPC) |
+| **Web ALB** | /27 × 3 (public) | Internet-facing ALB | Inbound 80/443 from internet; outbound to app compute only |
+| **Web NLB** | /27 × 3 (reserved) | Future NLB | Permissive (reserved) |
+| **App Endpoint** | /27 × 3 | VPC endpoints, EFS mounts, bastion | Inbound 443 from app compute; no direct internet |
+| **App Compute** | /23 × 3 | ECS/EKS tasks | Inbound 80 from web; outbound 3306/5432 to data, 443 to endpoints |
+| **Data** | /27 × 3 (reserved) | RDS, ElastiCache | Inbound 3306/5432 from app compute only |
+
+Traffic flow enforced by NACLs: **Internet → Web → App → Data** (no reverse initiation, no tier bypass).
+
+The `/23` app compute subnets (510 IPs per AZ) accommodate EKS VPC CNI pod networking at scale without requiring prefix delegation. VPC endpoints are placed in dedicated `/27` app endpoint subnets to avoid IP contention with compute workloads.
+
+A `compute_az_count` variable controls how many AZs run Fargate tasks and VPC endpoints (1 for nonprod cost savings, 2+ for prod HA). All 3 AZs of subnets are always created for future scaling.
+
+**Production considerations not implemented in reference:**
+- Gateway Load Balancer (GWLB) subnets for inline traffic inspection via network appliances
+- AWS Network Firewall for east-west traffic filtering between tiers
+- VPC Flow Logs to S3 in Log Archive account for network forensics
+
+**Consequences:**
+- *Defense-in-depth:* Network-level isolation between tiers via NACLs + security groups. A compromised web-tier container cannot reach the database directly.
+- *Compliance alignment:* Meets network segmentation requirements in PCI-DSS, MAS TRM, and SOC 2 control frameworks.
+- *Dual CIDR:* Each VPC uses /24 + /21 = ~2,300 IPs. With 10.0.0.0/8 address space, supports ~250 workload accounts before exhaustion.
+- *Subnet sprawl:* 18 subnets per VPC (6 tiers × 3 AZs). Manageable via Terraform modules but more complex than a 2-tier design.
+- *NACL statefulness:* NACLs are stateless — ephemeral port ranges must be explicitly allowed for return traffic. This adds rule complexity but is unavoidable for tier-level enforcement.
+
+**AWS ↔ Azure equivalent:** Azure Network Security Groups (NSGs) attached to subnets serve the same tier-isolation role. Azure Application Security Groups (ASGs) provide the equivalent of security-group-based rules. Azure VNet subnets with NSGs + Azure Firewall for east-west inspection.
+
+---
+
 ## AWS ↔ Azure Equivalence Table
 
 | Capability | AWS (this implementation) | Azure Equivalent |
