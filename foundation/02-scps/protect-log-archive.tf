@@ -16,12 +16,11 @@ module "protect_log_archive" {
         Effect = "Deny"
         Action = [
           "s3:DeleteBucket",
-          "s3:DeleteObject",
-          "s3:PutBucketPolicy"
+          "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::landing-zone-cloudtrail-logs",
-          "arn:aws:s3:::landing-zone-cloudtrail-logs/*"
+          "arn:aws:s3:::landing-zone-cloudtrail-logs-${local.log_archive_account_id}",
+          "arn:aws:s3:::landing-zone-cloudtrail-logs-${local.log_archive_account_id}/*"
         ]
       }
     ]

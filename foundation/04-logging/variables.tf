@@ -10,9 +10,9 @@ variable "log_archive_account_id" {
 }
 
 variable "log_bucket_name" {
-  description = "S3 bucket name for CloudTrail logs"
+  description = "S3 bucket name for CloudTrail logs (must be globally unique)"
   type        = string
-  default     = "landing-zone-cloudtrail-logs"
+  default     = "landing-zone-cloudtrail-logs-894650615013"
 }
 
 variable "log_retention_days" {

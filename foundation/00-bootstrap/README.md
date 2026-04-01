@@ -14,7 +14,15 @@ Complete all items before running `provision-foundation.sh`:
   (in `ap-southeast-1`) → Click "Enable" → Choose "Enable with AWS Organizations".
   This is required before `foundation/03-identity-center` can apply.
 
-### CLI / already completed
+### CLI steps (one-time, run from management account)
+
+- [ ] **Enable RAM sharing with Organizations** — Required before
+  `foundation/05-networking` can share the Transit Gateway across accounts.
+  ```bash
+  aws ram enable-sharing-with-aws-organization --region ap-southeast-1
+  ```
+
+### Already completed
 
 - [x] **AWS Organizations** — Enabled (all features) on the management account
 - [x] **S3 State Bucket** — `rj-landing-zone-tfstate` (ap-southeast-1, versioned,

@@ -51,8 +51,13 @@ for the full checklist.
 4. **IAM Identity Center** — Enable via AWS Console → IAM Identity Center →
    "Enable with AWS Organizations" (this **cannot** be done via CLI/API for
    the management account — AWS requires Console enablement)
-5. **Root MFA** — Enable MFA on the management account root user
-6. **Route 53 hosted zone** — `therj.link` must exist (or update variables
+5. **RAM sharing with Organizations** — Enable via CLI (required for Transit
+   Gateway sharing across accounts):
+   ```bash
+   aws ram enable-sharing-with-aws-organization --region ap-southeast-1
+   ```
+6. **Root MFA** — Enable MFA on the management account root user
+7. **Route 53 hosted zone** — `therj.link` must exist (or update variables
    for your domain)
 
 > **Note:** The provisioning scripts automatically extract account IDs from
