@@ -18,12 +18,12 @@ output "private_subnet_ids" {
   value       = aws_subnet.private[*].id
 }
 
-output "nat_gateway_id" {
-  description = "The ID of the NAT Gateway"
-  value       = aws_nat_gateway.this.id
-}
-
 output "tgw_attachment_id" {
   description = "The ID of the Transit Gateway VPC attachment"
   value       = aws_ec2_transit_gateway_vpc_attachment.this.id
+}
+
+output "vpc_endpoint_sg_id" {
+  description = "Security group ID used by VPC endpoints"
+  value       = aws_security_group.vpc_endpoints.id
 }

@@ -74,6 +74,40 @@ This document captures the key architectural decisions made for the Agentic Land
 
 ---
 
+## ADR-008: VPC Endpoints over NAT Gateway
+
+**Status:** Accepted
+
+**Context:** Private subnets need access to AWS services (ECR for image pulls, CloudWatch for logs, ECS control plane). The conventional approach is a NAT Gateway (~$32/month + $0.045/GB data processing), which provides general internet access. However, our Fargate workloads only communicate with AWS services — they have no need for outbound internet access. For EC2 workloads, NAT Gateways are commonly used for OS patching via internet package repositories (yum, apt).
+
+**Decision:** Replace NAT Gateway with VPC Endpoints for all required AWS service connectivity:
+
+| Use Case | VPC Endpoint | Type | Cost |
+|----------|-------------|------|------|
+| ECR image pull (API) | `com.amazonaws.{region}.ecr.api` | Interface | ~$7.30/mo |
+| ECR image pull (Docker) | `com.amazonaws.{region}.ecr.dkr` | Interface | ~$7.30/mo |
+| ECR image layers | `com.amazonaws.{region}.s3` | Gateway | Free |
+| Container logs | `com.amazonaws.{region}.logs` | Interface | ~$7.30/mo |
+| ECS control plane | `com.amazonaws.{region}.ecs` | Interface | ~$7.30/mo |
+| ECS agent comms | `com.amazonaws.{region}.ecs-agent` | Interface | ~$7.30/mo |
+| ECS telemetry | `com.amazonaws.{region}.ecs-telemetry` | Interface | ~$7.30/mo |
+| Role assumption (cross-account) | `com.amazonaws.{region}.sts` | Interface | ~$7.30/mo |
+| EC2 patching (replaces yum/apt over NAT) | `com.amazonaws.{region}.ssm` | Interface | ~$7.30/mo |
+| SSM session channels | `com.amazonaws.{region}.ssmmessages` | Interface | ~$7.30/mo |
+| SSM EC2 messages | `com.amazonaws.{region}.ec2messages` | Interface | ~$7.30/mo |
+
+**Consequences:**
+
+- *Security improvement:* Traffic to AWS services stays on the AWS backbone via AWS PrivateLink — never traverses the public internet. Reduces attack surface.
+- *No outbound internet:* Workloads in private subnets cannot reach the public internet at all. This is a feature, not a limitation — it enforces the principle of least connectivity.
+- *EC2 patching model change:* Instead of patching via internet repos through NAT, use AWS Systems Manager Patch Manager via SSM VPC Endpoints. This is the AWS-recommended approach for private subnets and provides auditable, policy-driven patching.
+- *Cost:* Interface endpoints cost ~$7.30/month each (2 AZs × $0.01/hr). With 10 interface endpoints that's ~$73/month — higher than a single NAT Gateway's base cost, but eliminates the per-GB data processing charge ($0.045/GB) which can be significant at scale. The S3 Gateway endpoint is free.
+- *No external API access:* If a workload later needs to call external APIs (SaaS, third-party services), a NAT Gateway or proxy would need to be added back for those specific routes.
+
+**AWS ↔ Azure equivalent:** Azure Private Link endpoints serve the same purpose — keeping traffic to Azure services on the Microsoft backbone without requiring a NAT Gateway or Azure Firewall for service access.
+
+---
+
 ## AWS ↔ Azure Equivalence Table
 
 | Capability | AWS (this implementation) | Azure Equivalent |

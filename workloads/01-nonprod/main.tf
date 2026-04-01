@@ -41,6 +41,7 @@ module "vpc" {
   private_subnet_cidrs = var.private_subnet_cidrs
   availability_zones   = var.availability_zones
   transit_gateway_id   = data.terraform_remote_state.networking.outputs.transit_gateway_id
+  aws_region           = var.aws_region
   environment          = var.environment
   tags                 = {}
 }

@@ -23,6 +23,12 @@ variable "transit_gateway_id" {
   type        = string
 }
 
+variable "aws_region" {
+  description = "AWS region for VPC endpoint service names"
+  type        = string
+  default     = "ap-southeast-1"
+}
+
 variable "environment" {
   description = "Environment name"
   type        = string

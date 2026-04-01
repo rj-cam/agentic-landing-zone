@@ -1,3 +1,7 @@
+###############################################################################
+# VPC
+###############################################################################
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -8,6 +12,10 @@ resource "aws_vpc" "this" {
   })
 }
 
+###############################################################################
+# Internet Gateway (for public subnets only)
+###############################################################################
+
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
@@ -15,6 +23,10 @@ resource "aws_internet_gateway" "this" {
     Name = "${var.environment}-igw"
   })
 }
+
+###############################################################################
+# Subnets
+###############################################################################
 
 resource "aws_subnet" "public" {
   count = length(var.public_subnet_cidrs)
@@ -41,24 +53,9 @@ resource "aws_subnet" "private" {
   })
 }
 
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  tags = merge(var.tags, {
-    Name = "${var.environment}-nat-eip"
-  })
-}
-
-resource "aws_nat_gateway" "this" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
-
-  tags = merge(var.tags, {
-    Name = "${var.environment}-nat-gw"
-  })
-
-  depends_on = [aws_internet_gateway.this]
-}
+###############################################################################
+# Route Tables
+###############################################################################
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
@@ -75,11 +72,6 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this.id
-  }
 
   tags = merge(var.tags, {
     Name = "${var.environment}-private-rt"
@@ -106,6 +98,10 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+###############################################################################
+# Transit Gateway Attachment
+###############################################################################
+
 resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
   vpc_id             = aws_vpc.this.id
   subnet_ids         = aws_subnet.private[*].id
@@ -113,5 +109,82 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 
   tags = merge(var.tags, {
     Name = "${var.environment}-tgw-attachment"
+  })
+}
+
+###############################################################################
+# VPC Endpoints — Security Group
+###############################################################################
+
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${var.environment}-vpc-endpoints"
+  description = "Allow HTTPS from private subnets to VPC endpoints"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.private_subnet_cidrs
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-vpc-endpoints-sg"
+  })
+}
+
+###############################################################################
+# VPC Endpoints — Gateway (free)
+###############################################################################
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private.id]
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-vpce-s3"
+  })
+}
+
+###############################################################################
+# VPC Endpoints — Interface (PrivateLink)
+###############################################################################
+
+locals {
+  interface_endpoints = {
+    ecr_api       = "com.amazonaws.${var.aws_region}.ecr.api"
+    ecr_dkr       = "com.amazonaws.${var.aws_region}.ecr.dkr"
+    logs          = "com.amazonaws.${var.aws_region}.logs"
+    ecs           = "com.amazonaws.${var.aws_region}.ecs"
+    ecs_agent     = "com.amazonaws.${var.aws_region}.ecs-agent"
+    ecs_telemetry = "com.amazonaws.${var.aws_region}.ecs-telemetry"
+    sts           = "com.amazonaws.${var.aws_region}.sts"
+    ssm           = "com.amazonaws.${var.aws_region}.ssm"
+    ssmmessages   = "com.amazonaws.${var.aws_region}.ssmmessages"
+    ec2messages   = "com.amazonaws.${var.aws_region}.ec2messages"
+  }
+}
+
+resource "aws_vpc_endpoint" "interface" {
+  for_each = local.interface_endpoints
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = each.value
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+
+  tags = merge(var.tags, {
+    Name = "${var.environment}-vpce-${each.key}"
   })
 }
