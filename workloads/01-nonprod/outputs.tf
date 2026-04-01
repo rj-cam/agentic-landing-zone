@@ -17,3 +17,8 @@ output "app_url" {
   description = "Application URL"
   value       = "http://nonprod.therj.link"
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the GitHub Actions deploy role"
+  value       = aws_iam_role.github_actions_deploy.arn
+}

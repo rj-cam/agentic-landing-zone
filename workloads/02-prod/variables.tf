@@ -44,3 +44,15 @@ variable "container_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "github_org" {
+  description = "GitHub username or organization"
+  type        = string
+  default     = "rj-cam"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "agentic-landing-zone"
+}

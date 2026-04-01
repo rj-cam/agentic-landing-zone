@@ -1,0 +1,23 @@
+# Required: Non-prod AWS account ID
+nonprod_account_id = "123456789012"
+
+# Optional: Override the default region (default: ap-southeast-1)
+# aws_region = "ap-southeast-1"
+
+# Optional: Environment name (default: nonprod)
+# environment = "nonprod"
+
+# Optional: CIDR block for the VPC (default: 10.1.0.0/16)
+# vpc_cidr = "10.1.0.0/16"
+
+# Optional: CIDR blocks for public subnets (default: ["10.1.101.0/24", "10.1.102.0/24"])
+# public_subnet_cidrs = ["10.1.101.0/24", "10.1.102.0/24"]
+
+# Optional: CIDR blocks for private subnets (default: ["10.1.1.0/24", "10.1.2.0/24"])
+# private_subnet_cidrs = ["10.1.1.0/24", "10.1.2.0/24"]
+
+# Optional: Availability zones (default: ["ap-southeast-1a", "ap-southeast-1b"])
+# availability_zones = ["ap-southeast-1a", "ap-southeast-1b"]
+
+# Optional: Docker image tag to deploy (default: latest)
+# container_image_tag = "latest"

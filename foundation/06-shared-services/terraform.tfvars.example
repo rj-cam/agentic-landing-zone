@@ -1,0 +1,20 @@
+# Required: AWS account ID for the Shared Services account
+shared_services_account_id = "123456789012"
+
+# Required: AWS account ID for the Non-Production account
+nonprod_account_id = "234567890123"
+
+# Required: AWS account ID for the Production account
+prod_account_id = "345678901234"
+
+# Optional: Override the default region (default: ap-southeast-1)
+# aws_region = "ap-southeast-1"
+
+# Optional: GitHub username/org (default: rj-cam)
+# github_org = "rj-cam"
+
+# Optional: GitHub repo name (default: agentic-landing-zone)
+# github_repo = "agentic-landing-zone"
+
+# Optional: Name of the ECR repository (default: landing-zone/httpd)
+# ecr_repository_name = "landing-zone/httpd"
