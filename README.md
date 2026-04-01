@@ -150,7 +150,7 @@ agentic-landing-zone/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                  # CI/CD: build ARM64 image, deploy nonprod, then prod
-├── docker/
+├── sample-workload/
 │   ├── Dockerfile                      # httpd on ARM64 with environment-aware entrypoint
 │   ├── entrypoint.sh                   # Copies the correct page based on ENVIRONMENT var
 │   └── pages/

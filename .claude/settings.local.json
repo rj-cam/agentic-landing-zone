@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:registry.terraform.io)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(export PATH=\"/c/Work/terraform_1.14.8_windows_amd64:$PATH\")",
+      "Bash(terraform fmt:*)",
+      "Read(//c/Work/GitHub/agentic-landing-zone/**)",
+      "Bash(terraform init:*)",
+      "Bash(terraform validate:*)",
+      "Bash(rm -rf .terraform)",
+      "Bash(bash scripts/provision-foundation.sh)",
+      "Bash(terraform import:*)"
+    ]
+  }
+}
