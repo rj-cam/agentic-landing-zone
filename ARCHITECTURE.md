@@ -92,9 +92,13 @@ This document captures the key architectural decisions made for the Agentic Land
 | ECS agent comms | `com.amazonaws.{region}.ecs-agent` | Interface | ~$7.30/mo |
 | ECS telemetry | `com.amazonaws.{region}.ecs-telemetry` | Interface | ~$7.30/mo |
 | Role assumption (cross-account) | `com.amazonaws.{region}.sts` | Interface | ~$7.30/mo |
-| EC2 patching (replaces yum/apt over NAT) | `com.amazonaws.{region}.ssm` | Interface | ~$7.30/mo |
-| SSM session channels | `com.amazonaws.{region}.ssmmessages` | Interface | ~$7.30/mo |
-| SSM EC2 messages | `com.amazonaws.{region}.ec2messages` | Interface | ~$7.30/mo |
+| EC2 patching (add for EC2) | `com.amazonaws.{region}.ssm` | Interface | ~$7.30/mo |
+| SSM session channels (add for EC2) | `com.amazonaws.{region}.ssmmessages` | Interface | ~$7.30/mo |
+| SSM EC2 messages (add for EC2) | `com.amazonaws.{region}.ec2messages` | Interface | ~$7.30/mo |
+
+> **Note:** The reference implementation deploys 7 interface endpoints (ECR, ECS,
+> Logs, STS). The 3 SSM endpoints are omitted to save ~$22/month per AZ — add them
+> when introducing EC2 instances or bastion hosts for Systems Manager patching.
 
 **Consequences:**
 

@@ -721,9 +721,10 @@ locals {
     ecs_agent     = "com.amazonaws.${var.aws_region}.ecs-agent"
     ecs_telemetry = "com.amazonaws.${var.aws_region}.ecs-telemetry"
     sts           = "com.amazonaws.${var.aws_region}.sts"
-    ssm           = "com.amazonaws.${var.aws_region}.ssm"
-    ssmmessages   = "com.amazonaws.${var.aws_region}.ssmmessages"
-    ec2messages   = "com.amazonaws.${var.aws_region}.ec2messages"
+    # SSM endpoints omitted from demo (add for EC2 bastion/patching):
+    # ssm         = "com.amazonaws.${var.aws_region}.ssm"
+    # ssmmessages = "com.amazonaws.${var.aws_region}.ssmmessages"
+    # ec2messages = "com.amazonaws.${var.aws_region}.ec2messages"
   }
 
   # Only place endpoints in the AZs where compute runs
