@@ -180,6 +180,26 @@ ACM certificates are provisioned per environment with DNS validation via Route 5
 
 ---
 
+## ADR-011: DRY Workload Template Module
+
+**Status:** Accepted
+
+**Context:** Workload directories (nonprod, prod) were 95%+ identical — only CIDRs, domain names, account IDs, and scaling parameters differed. Adding a new environment required copying an entire directory and editing 4+ files, violating the DRY (Don't Repeat Yourself) principle and increasing the risk of configuration drift between environments.
+
+**Decision:** Extract all workload logic into a reusable `modules/workload` module that composes VPC, ALB, ECS, ACM, DNS, OIDC, and security hardening. Each environment becomes a thin wrapper (~30 lines) that calls the module with environment-specific values. The module source paths use relative references (`../vpc`, `../alb`, etc.) so sub-modules are resolved automatically.
+
+New environments require only 4 files: `backend.tf` (state key), `providers.tf` (account ID + assume_role), `main.tf` (module call with CIDRs/domain/scaling), `outputs.tf` (pass-through).
+
+**Consequences:**
+- *Single source of truth:* Bug fixes and enhancements to VPC, ALB, ECS, or security apply to all environments simultaneously via the shared module.
+- *Fast onboarding:* New environment provisioning reduced from copy-7-files-edit-each to copy-4-files-change-values.
+- *Configuration parity:* Impossible for nonprod and prod to drift on architecture — they call the same module.
+- *Trade-off:* One level of indirection when reading code (wrapper → workload module → sub-modules). Mitigated by clear naming and outputs.
+
+**AWS ↔ Azure equivalent:** Same pattern applies — Azure Terraform modules or Bicep modules can be parameterized per environment with thin wrapper deployments.
+
+---
+
 ## AWS ↔ Azure Equivalence Table
 
 | Capability | AWS (this implementation) | Azure Equivalent |

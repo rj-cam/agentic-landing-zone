@@ -2,15 +2,6 @@
 # Remote State Data Sources
 ###############################################################################
 
-data "terraform_remote_state" "organization" {
-  backend = "s3"
-  config = {
-    bucket = "rj-landing-zone-tfstate"
-    key    = "foundation/01-organization/terraform.tfstate"
-    region = "ap-southeast-1"
-  }
-}
-
 data "terraform_remote_state" "networking" {
   backend = "s3"
   config = {
@@ -30,121 +21,36 @@ data "terraform_remote_state" "shared_services" {
 }
 
 ###############################################################################
-# VPC
+# Workload — Non-Production
 ###############################################################################
 
-module "vpc" {
-  source = "../../modules/vpc"
+module "workload" {
+  source = "../../modules/workload"
 
-  vpc_cidr_primary          = var.vpc_cidr_primary
-  vpc_cidr_secondary        = var.vpc_cidr_secondary
-  availability_zones        = var.availability_zones
-  tgw_subnet_cidrs          = var.tgw_subnet_cidrs
-  web_alb_subnet_cidrs      = var.web_alb_subnet_cidrs
-  web_nlb_subnet_cidrs      = var.web_nlb_subnet_cidrs
-  app_endpoint_subnet_cidrs = var.app_endpoint_subnet_cidrs
-  app_compute_subnet_cidrs  = var.app_compute_subnet_cidrs
-  data_subnet_cidrs         = var.data_subnet_cidrs
-  transit_gateway_id        = data.terraform_remote_state.networking.outputs.transit_gateway_id
-  compute_az_count          = var.compute_az_count
+  providers = {
+    aws     = aws
+    aws.dns = aws.dns
+  }
+
+  environment               = "nonprod"
+  domain_name               = "nonprod.therj.link"
   aws_region                = var.aws_region
-  environment               = var.environment
-  tags                      = {}
-}
-
-###############################################################################
-# ACM Certificate + DNS Validation (cross-account)
-###############################################################################
-
-resource "aws_acm_certificate" "this" {
-  domain_name       = "nonprod.therj.link"
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-provider "aws" {
-  alias  = "dns"
-  region = var.aws_region
-  assume_role {
-    role_arn = data.terraform_remote_state.networking.outputs.dns_role_arn
-  }
-}
-
-resource "aws_route53_record" "cert_validation" {
-  provider = aws.dns
-
-  for_each = {
-    for dvo in aws_acm_certificate.this.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  zone_id = data.terraform_remote_state.networking.outputs.hosted_zone_id
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
-}
-
-resource "aws_acm_certificate_validation" "this" {
-  certificate_arn         = aws_acm_certificate.this.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
-}
-
-###############################################################################
-# ALB
-###############################################################################
-
-module "alb" {
-  source = "../../modules/alb"
-
-  name            = "${var.environment}-alb"
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.web_alb_subnet_ids
-  certificate_arn = aws_acm_certificate_validation.this.certificate_arn
-  environment     = var.environment
-  tags            = {}
-}
-
-###############################################################################
-# ECS Fargate Service
-###############################################################################
-
-module "ecs" {
-  source = "../../modules/ecs-fargate-service"
-
-  cluster_name          = "sample-${var.environment}"
-  service_name          = "sample-service"
-  container_image       = "${data.terraform_remote_state.shared_services.outputs.ecr_repository_url}:${var.container_image_tag}"
-  container_port        = 80
-  cpu                   = 256
-  memory                = 512
-  desired_count         = 1
-  subnet_ids            = slice(module.vpc.app_compute_subnet_ids, 0, var.compute_az_count)
-  vpc_id                = module.vpc.vpc_id
-  target_group_arn      = module.alb.target_group_arn
-  alb_security_group_id = module.alb.security_group_id
-  environment           = var.environment
-  aws_region            = var.aws_region
-  tags                  = {}
-}
-
-###############################################################################
-# DNS Record
-###############################################################################
-
-module "dns" {
-  source = "../../modules/dns-record"
-
-  zone_id         = data.terraform_remote_state.networking.outputs.hosted_zone_id
-  record_name     = "nonprod.therj.link"
-  alb_dns_name    = module.alb.alb_dns_name
-  alb_zone_id     = module.alb.alb_zone_id
-  aws_region      = var.aws_region
-  assume_role_arn = data.terraform_remote_state.networking.outputs.dns_role_arn
+  vpc_cidr_primary          = "10.1.0.0/24"
+  vpc_cidr_secondary        = "10.1.8.0/21"
+  availability_zones        = ["ap-southeast-1a", "ap-southeast-1b", "ap-southeast-1c"]
+  tgw_subnet_cidrs          = ["10.1.0.0/28", "10.1.0.16/28", "10.1.0.32/28"]
+  web_alb_subnet_cidrs      = ["10.1.0.64/27", "10.1.0.96/27", "10.1.0.128/27"]
+  web_nlb_subnet_cidrs      = ["10.1.0.160/27", "10.1.0.192/27", "10.1.0.224/27"]
+  app_endpoint_subnet_cidrs = ["10.1.8.0/27", "10.1.8.32/27", "10.1.8.64/27"]
+  app_compute_subnet_cidrs  = ["10.1.10.0/23", "10.1.12.0/23", "10.1.14.0/23"]
+  data_subnet_cidrs         = ["10.1.8.96/27", "10.1.8.128/27", "10.1.8.160/27"]
+  compute_az_count          = 1
+  desired_count             = 1
+  container_image_tag       = "latest"
+  transit_gateway_id        = data.terraform_remote_state.networking.outputs.transit_gateway_id
+  ecr_repository_url        = data.terraform_remote_state.shared_services.outputs.ecr_repository_url
+  hosted_zone_id            = data.terraform_remote_state.networking.outputs.hosted_zone_id
+  dns_role_arn              = data.terraform_remote_state.networking.outputs.dns_role_arn
+  github_org                = "rj-cam"
+  github_repo               = "agentic-landing-zone"
 }

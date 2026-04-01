@@ -23,14 +23,14 @@ echo "--- Destroying 02-prod ---"
 cd "$ROOT_DIR/workloads/02-prod"
 terraform init -input=false
 terraform destroy -auto-approve -input=false \
-  -var="prod_account_id=$PROD_ACCOUNT_ID"
+  -var="account_id=$PROD_ACCOUNT_ID"
 echo ""
 
 echo "--- Destroying 01-nonprod ---"
 cd "$ROOT_DIR/workloads/01-nonprod"
 terraform init -input=false
 terraform destroy -auto-approve -input=false \
-  -var="nonprod_account_id=$NONPROD_ACCOUNT_ID"
+  -var="account_id=$NONPROD_ACCOUNT_ID"
 echo ""
 
 echo "=== Workloads destroyed. Foundation intact. ==="

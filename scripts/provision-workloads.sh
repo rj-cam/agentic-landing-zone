@@ -26,7 +26,7 @@ echo "--- 01-nonprod ---"
 cd "$ROOT_DIR/workloads/01-nonprod"
 terraform init -input=false
 terraform apply -auto-approve -input=false \
-  -var="nonprod_account_id=$NONPROD_ACCOUNT_ID"
+  -var="account_id=$NONPROD_ACCOUNT_ID"
 echo ""
 
 ###############################################################################
@@ -36,9 +36,9 @@ echo "--- 02-prod ---"
 cd "$ROOT_DIR/workloads/02-prod"
 terraform init -input=false
 terraform apply -auto-approve -input=false \
-  -var="prod_account_id=$PROD_ACCOUNT_ID"
+  -var="account_id=$PROD_ACCOUNT_ID"
 echo ""
 
 echo "=== Workloads provisioned ==="
-echo "  Non-Prod: http://nonprod.therj.link"
-echo "  Prod:     http://prod.therj.link"
+echo "  Non-Prod: https://nonprod.therj.link"
+echo "  Prod:     https://prod.therj.link"

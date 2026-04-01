@@ -12,7 +12,7 @@ terraform {
 provider "aws" {
   region = var.aws_region
   assume_role {
-    role_arn = "arn:aws:iam::${var.nonprod_account_id}:role/OrganizationAccountAccessRole"
+    role_arn = "arn:aws:iam::${var.account_id}:role/OrganizationAccountAccessRole"
   }
   default_tags {
     tags = {
@@ -20,5 +20,13 @@ provider "aws" {
       Environment = "nonprod"
       ManagedBy   = "terraform"
     }
+  }
+}
+
+provider "aws" {
+  alias  = "dns"
+  region = var.aws_region
+  assume_role {
+    role_arn = data.terraform_remote_state.networking.outputs.dns_role_arn
   }
 }
