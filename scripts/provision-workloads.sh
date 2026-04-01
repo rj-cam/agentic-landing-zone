@@ -11,6 +11,7 @@ echo "=== Provisioning Workloads ==="
 ###############################################################################
 echo "--- Reading account IDs from organization state ---"
 cd "$ROOT_DIR/foundation/01-organization"
+terraform init -input=false > /dev/null
 NONPROD_ACCOUNT_ID=$(terraform output -raw nonprod_account_id)
 PROD_ACCOUNT_ID=$(terraform output -raw prod_account_id)
 

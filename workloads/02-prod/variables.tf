@@ -24,7 +24,7 @@ variable "vpc_cidr_primary" {
 variable "vpc_cidr_secondary" {
   description = "Secondary VPC CIDR (/21 workloads)"
   type        = string
-  default     = "10.2.4.0/21"
+  default     = "10.2.8.0/21"
 }
 
 variable "availability_zones" {
@@ -54,19 +54,19 @@ variable "web_nlb_subnet_cidrs" {
 variable "app_endpoint_subnet_cidrs" {
   description = "App endpoint subnet CIDRs"
   type        = list(string)
-  default     = ["10.2.4.0/27", "10.2.4.32/27", "10.2.4.64/27"]
+  default     = ["10.2.8.0/27", "10.2.8.32/27", "10.2.8.64/27"]
 }
 
 variable "app_compute_subnet_cidrs" {
   description = "App compute subnet CIDRs"
   type        = list(string)
-  default     = ["10.2.6.0/23", "10.2.8.0/23", "10.2.10.0/23"]
+  default     = ["10.2.10.0/23", "10.2.12.0/23", "10.2.14.0/23"]
 }
 
 variable "data_subnet_cidrs" {
   description = "Data subnet CIDRs (reserved)"
   type        = list(string)
-  default     = ["10.2.4.96/27", "10.2.4.128/27", "10.2.4.160/27"]
+  default     = ["10.2.8.96/27", "10.2.8.128/27", "10.2.8.160/27"]
 }
 
 variable "compute_az_count" {

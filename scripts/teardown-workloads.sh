@@ -12,6 +12,7 @@ echo ""
 # Extract account IDs from 01-organization outputs
 ###############################################################################
 cd "$ROOT_DIR/foundation/01-organization"
+terraform init -input=false > /dev/null
 NONPROD_ACCOUNT_ID=$(terraform output -raw nonprod_account_id)
 PROD_ACCOUNT_ID=$(terraform output -raw prod_account_id)
 

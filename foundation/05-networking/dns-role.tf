@@ -12,6 +12,7 @@ resource "aws_iam_role" "route53_record_manager" {
         Effect = "Allow"
         Principal = {
           AWS = [
+            "arn:aws:iam::${data.aws_organizations_organization.current.master_account_id}:root",
             "arn:aws:iam::${local.account_ids["nonprod"]}:root",
             "arn:aws:iam::${local.account_ids["prod"]}:root",
           ]
@@ -43,6 +44,8 @@ resource "aws_iam_role_policy" "route53_records" {
         Action = [
           "route53:ListHostedZones",
           "route53:GetHostedZone",
+          "route53:GetChange",
+          "route53:ListResourceRecordSets",
         ]
         Resource = "*"
       }

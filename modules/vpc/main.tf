@@ -549,6 +549,56 @@ resource "aws_network_acl" "app_compute" {
     }
   }
 
+  # Inbound ephemeral from VPC CIDR (DNS response + other return traffic)
+  ingress {
+    rule_no    = 400
+    protocol   = "udp"
+    action     = "allow"
+    cidr_block = var.vpc_cidr_primary
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Inbound ephemeral from S3 gateway endpoint (public S3 IPs via route table)
+  ingress {
+    rule_no    = 410
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
+
+  # Outbound HTTPS to S3 gateway endpoint (public S3 IPs via route table)
+  egress {
+    rule_no    = 450
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  # Outbound DNS to VPC resolver
+  egress {
+    rule_no    = 500
+    protocol   = "udp"
+    action     = "allow"
+    cidr_block = var.vpc_cidr_primary
+    from_port  = 53
+    to_port    = 53
+  }
+
+  # Outbound DNS ephemeral return (TCP, for large DNS responses)
+  egress {
+    rule_no    = 510
+    protocol   = "tcp"
+    action     = "allow"
+    cidr_block = var.vpc_cidr_primary
+    from_port  = 53
+    to_port    = 53
+  }
+
   tags = merge(var.tags, {
     Name = "${var.environment}-app-compute-nacl"
   })

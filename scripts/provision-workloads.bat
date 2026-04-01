@@ -8,6 +8,7 @@ rem Extract account IDs from 01-organization outputs
 rem ============================================================================
 echo --- Reading account IDs from organization state ---
 cd /d "%~dp0..\foundation\01-organization"
+call terraform init -input=false > nul
 
 for /f "tokens=*" %%A in ('terraform output -raw nonprod_account_id') do set NONPROD_ACCOUNT_ID=%%A
 for /f "tokens=*" %%A in ('terraform output -raw prod_account_id') do set PROD_ACCOUNT_ID=%%A
