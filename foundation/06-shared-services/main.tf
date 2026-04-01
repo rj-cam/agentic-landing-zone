@@ -15,3 +15,11 @@ data "terraform_remote_state" "organization" {
 locals {
   account_ids = data.terraform_remote_state.organization.outputs.account_ids
 }
+
+################################################################################
+# Security Hardening
+################################################################################
+
+resource "aws_ebs_encryption_by_default" "this" {
+  enabled = true
+}
