@@ -1,0 +1,34 @@
+# Environment definitions — single source of truth for account vending.
+# To add a new environment: add an entry below, then run:
+#   scripts/vend-environment.sh <name>
+#   scripts/provision-foundation.sh
+#   scripts/provision-workloads.sh
+
+environments:
+  nonprod:
+    account_name: Non-Prod          # Display name in AWS Organizations
+    account_email: rj.camarillo+nonprod@gmail.com
+    ou: nonprod                     # OU to place the account in
+    cidr_index: 1                   # 10.{index}.x.x
+    domain: nonprod.therj.link
+    compute_az_count: 1             # AZs for Fargate + VPC endpoints
+    desired_count: 1                # ECS task count
+
+  prod:
+    account_name: Prod
+    account_email: rj.camarillo+prod@gmail.com
+    ou: prod
+    cidr_index: 2
+    domain: prod.therj.link
+    compute_az_count: 2
+    desired_count: 2
+
+  # Example — uncomment to add a staging environment:
+  # staging:
+  #   account_name: Staging
+  #   account_email: rj.camarillo+staging@gmail.com
+  #   ou: nonprod
+  #   cidr_index: 3
+  #   domain: staging.therj.link
+  #   compute_az_count: 1
+  #   desired_count: 1

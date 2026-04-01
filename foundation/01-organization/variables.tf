@@ -21,15 +21,3 @@ variable "shared_services_account_email" {
   type        = string
   default     = "rj.camarillo+shared@gmail.com"
 }
-
-variable "nonprod_account_email" {
-  description = "Email address for the Non-Prod account"
-  type        = string
-  default     = "rj.camarillo+nonprod@gmail.com"
-}
-
-variable "prod_account_email" {
-  description = "Email address for the Prod account"
-  type        = string
-  default     = "rj.camarillo+prod@gmail.com"
-}

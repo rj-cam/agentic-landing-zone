@@ -48,7 +48,20 @@ resource "aws_organizations_organizational_unit" "prod" {
 }
 
 ###############################################################################
-# Member Accounts
+# Environment definitions from YAML
+###############################################################################
+
+locals {
+  environments = yamldecode(file("${path.module}/../../environments.yaml"))["environments"]
+
+  ou_map = {
+    nonprod = aws_organizations_organizational_unit.nonprod.id
+    prod    = aws_organizations_organizational_unit.prod.id
+  }
+}
+
+###############################################################################
+# Infrastructure Accounts (static)
 ###############################################################################
 
 resource "aws_organizations_account" "security" {
@@ -84,22 +97,17 @@ resource "aws_organizations_account" "shared_services" {
   }
 }
 
-resource "aws_organizations_account" "nonprod" {
-  name      = "Non-Prod"
-  email     = var.nonprod_account_email
-  role_name = "OrganizationAccountAccessRole"
-  parent_id = aws_organizations_organizational_unit.nonprod.id
+###############################################################################
+# Workload Accounts (driven by environments.yaml)
+###############################################################################
 
-  lifecycle {
-    ignore_changes = [role_name]
-  }
-}
+resource "aws_organizations_account" "workload" {
+  for_each = local.environments
 
-resource "aws_organizations_account" "prod" {
-  name      = "Prod"
-  email     = var.prod_account_email
+  name      = each.value.account_name
+  email     = each.value.account_email
   role_name = "OrganizationAccountAccessRole"
-  parent_id = aws_organizations_organizational_unit.prod.id
+  parent_id = local.ou_map[each.value.ou]
 
   lifecycle {
     ignore_changes = [role_name]
