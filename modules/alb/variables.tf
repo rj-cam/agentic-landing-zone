@@ -30,6 +30,12 @@ variable "environment" {
   type        = string
 }
 
+variable "certificate_arn" {
+  description = "ACM certificate ARN for HTTPS listener (empty string = HTTP only)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

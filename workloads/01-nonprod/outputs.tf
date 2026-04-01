@@ -15,7 +15,7 @@ output "ecs_cluster_name" {
 
 output "app_url" {
   description = "Application URL"
-  value       = "http://nonprod.therj.link"
+  value       = "https://nonprod.therj.link"
 }
 
 output "github_actions_role_arn" {

@@ -160,6 +160,26 @@ A `compute_az_count` variable controls how many AZs run Fargate tasks and VPC en
 
 ---
 
+## ADR-010: TLS 1.3 Enforcement on All External Endpoints
+
+**Status:** Accepted
+
+**Context:** Transport Layer Security (TLS) protects data in transit between clients and load balancers. TLS 1.2 remains widely supported but has known weaknesses (CBC cipher suites, renegotiation attacks). TLS 1.3 eliminates these, reduces handshake latency (1-RTT vs 2-RTT), and removes all legacy cipher suites. All modern browsers and clients support TLS 1.3.
+
+**Decision:** Enforce TLS 1.3 as the minimum protocol version on all internet-facing ALBs. Use the AWS ALB security policy `ELBSecurityPolicy-TLS13-1-2-2021-06` which supports TLS 1.3 and TLS 1.2 (for backward compatibility) but only with strong cipher suites. HTTP traffic on port 80 is permanently redirected to HTTPS (301).
+
+ACM certificates are provisioned per environment with DNS validation via Route 53. The certificates are free and auto-renew.
+
+**Consequences:**
+- *Security:* All external traffic is encrypted with TLS 1.3 preferred, TLS 1.2 as fallback. No plaintext HTTP traffic reaches the application.
+- *Performance:* TLS 1.3 handshake is faster (1-RTT) than TLS 1.2 (2-RTT), improving first-request latency.
+- *Cost:* Zero — ACM certificates are free when used with AWS load balancers.
+- *Compatibility:* TLS 1.3 is supported by all modern browsers (Chrome 70+, Firefox 63+, Safari 12.1+, Edge 79+). Very old clients (IE 11, Java 8 without updates) will fall back to TLS 1.2.
+
+**AWS ↔ Azure equivalent:** Azure Application Gateway supports TLS 1.3 via the `CustomV2` or `AppGwSslPolicy20220101` predefined policy. Azure Front Door enforces TLS 1.2+ by default with TLS 1.3 support.
+
+---
+
 ## AWS ↔ Azure Equivalence Table
 
 | Capability | AWS (this implementation) | Azure Equivalent |
