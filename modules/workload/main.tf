@@ -3,7 +3,7 @@ terraform {
     aws = {
       source                = "hashicorp/aws"
       version               = "~> 5.0"
-      configuration_aliases = [aws.dns]
+      configuration_aliases = [aws.dns, aws.us_east_1]
     }
   }
 }
@@ -32,7 +32,7 @@ module "vpc" {
 }
 
 ###############################################################################
-# ACM Certificate + DNS Validation (cross-account)
+# ACM Certificate + DNS Validation — regional (for ALB)
 ###############################################################################
 
 resource "aws_acm_certificate" "this" {
@@ -68,7 +68,29 @@ resource "aws_acm_certificate_validation" "this" {
 }
 
 ###############################################################################
-# ALB — HTTPS with TLS 1.3
+# ACM Certificate — us-east-1 (required by CloudFront)
+###############################################################################
+
+resource "aws_acm_certificate" "cloudfront" {
+  provider          = aws.us_east_1
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# DNS validation records are the same for both certs (same domain, same DNS method),
+# so the regional cert validation records already satisfy this cert too.
+resource "aws_acm_certificate_validation" "cloudfront" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.cloudfront.arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+}
+
+###############################################################################
+# ALB — internal, HTTPS with TLS 1.3
 ###############################################################################
 
 module "alb" {
@@ -78,8 +100,24 @@ module "alb" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.web_alb_subnet_ids
   certificate_arn = aws_acm_certificate_validation.this.certificate_arn
+  internal        = true
   environment     = var.environment
   tags            = {}
+}
+
+###############################################################################
+# CloudFront — VPC Origin to internal ALB (ADR-012)
+###############################################################################
+
+module "cloudfront" {
+  source = "../cloudfront"
+
+  alb_arn             = module.alb.alb_arn
+  alb_dns_name        = module.alb.alb_dns_name
+  domain_name         = var.domain_name
+  acm_certificate_arn = aws_acm_certificate_validation.cloudfront.certificate_arn
+  environment         = var.environment
+  tags                = {}
 }
 
 ###############################################################################
@@ -106,7 +144,7 @@ module "ecs" {
 }
 
 ###############################################################################
-# DNS Record — cross-account Route 53
+# DNS Record — cross-account Route 53, points to CloudFront
 ###############################################################################
 
 module "dns" {
@@ -114,8 +152,8 @@ module "dns" {
 
   zone_id         = var.hosted_zone_id
   record_name     = var.domain_name
-  alb_dns_name    = module.alb.alb_dns_name
-  alb_zone_id     = module.alb.alb_zone_id
+  alias_dns_name  = module.cloudfront.distribution_domain_name
+  alias_zone_id   = module.cloudfront.distribution_hosted_zone_id
   aws_region      = var.aws_region
   assume_role_arn = var.dns_role_arn
 }

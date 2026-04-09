@@ -3,38 +3,6 @@ resource "aws_security_group" "alb" {
   description = "Security group for ALB ${var.name}"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "HTTP from anywhere (IPv4)"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description      = "HTTP from anywhere (IPv6)"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  ingress {
-    description = "HTTPS from anywhere (IPv4)"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description      = "HTTPS from anywhere (IPv6)"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
   egress {
     description = "All outbound traffic"
     from_port   = 0
@@ -49,9 +17,56 @@ resource "aws_security_group" "alb" {
   })
 }
 
+# When internet-facing: allow HTTP/HTTPS from anywhere
+# When internal: ingress comes from CloudFront VPC Origin service-managed SG (auto-configured by AWS)
+
+resource "aws_security_group_rule" "http_ipv4" {
+  count             = var.internal ? 0 : 1
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTP from anywhere (IPv4)"
+}
+
+resource "aws_security_group_rule" "http_ipv6" {
+  count             = var.internal ? 0 : 1
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTP from anywhere (IPv6)"
+}
+
+resource "aws_security_group_rule" "https_ipv4" {
+  count             = var.internal ? 0 : 1
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS from anywhere (IPv4)"
+}
+
+resource "aws_security_group_rule" "https_ipv6" {
+  count             = var.internal ? 0 : 1
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS from anywhere (IPv6)"
+}
+
 resource "aws_lb" "this" {
   name               = var.name
-  internal           = false
+  internal           = var.internal
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = var.subnet_ids

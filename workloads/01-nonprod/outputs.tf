@@ -13,6 +13,16 @@ output "ecs_cluster_name" {
   value       = module.workload.ecs_cluster_name
 }
 
+output "cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution"
+  value       = module.workload.cloudfront_distribution_id
+}
+
+output "cloudfront_domain_name" {
+  description = "Domain name of the CloudFront distribution"
+  value       = module.workload.cloudfront_domain_name
+}
+
 output "app_url" {
   description = "Application URL"
   value       = module.workload.app_url

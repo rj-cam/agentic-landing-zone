@@ -200,6 +200,54 @@ New environments require only 4 files: `backend.tf` (state key), `providers.tf` 
 
 ---
 
+## ADR-012: CloudFront with VPC Origins over Direct ALB Exposure
+
+**Status:** Accepted
+
+**Context:** The workload ALB is currently internet-facing, exposing it directly to the public internet. This means every request hits the ALB origin in `ap-southeast-1` regardless of client location, there is no edge-layer DDoS protection beyond AWS Shield Standard on the ALB, and no ability to add edge caching, geographic restrictions, or WAF at the CDN layer. For production workloads, a content delivery network in front of the origin is the standard pattern.
+
+AWS CloudFront VPC Origins (launched November 2024) allow CloudFront to connect directly to internal (private) ALBs via a service-managed ENI in the VPC. This eliminates the need for a public ALB entirely — the ALB has no internet-facing endpoint, and only CloudFront can reach it through the VPC Origin connection.
+
+**Decision:** Place a CloudFront distribution in front of every workload ALB using VPC Origins. The ALB becomes internal (`internal = true`), and the Route 53 alias record points to the CloudFront distribution instead of the ALB.
+
+Architecture flow:
+```
+Client → CloudFront (edge, TLS termination, Shield Standard)
+       → VPC Origin ENI (in Web-ALB subnet)
+       → Internal ALB (HTTPS, TLS 1.3)
+       → ECS Fargate tasks (App-Compute subnet)
+```
+
+Key implementation details:
+- **VPC Origin:** `aws_cloudfront_vpc_origin` targets the internal ALB ARN. AWS auto-creates a service-managed security group (`CloudFront-VPCOrigins-Service-SG`) and ENI in the ALB subnets.
+- **ALB security group:** Public ingress rules (0.0.0.0/0) are removed. The service-managed SG handles CloudFront-to-ALB connectivity automatically.
+- **ACM certificates:** Two certificates per environment — one in `ap-southeast-1` (for the ALB HTTPS listener) and one in `us-east-1` (required by CloudFront). Both use DNS validation via the same Route 53 records.
+- **Cache policy:** `CachingDisabled` managed policy for dynamic content (ECS workloads). Switch to `CachingOptimized` for static assets when applicable.
+- **Origin request policy:** `AllViewer` managed policy — forwards all headers, query strings, and cookies to the origin for full application compatibility.
+- **Price class:** `PriceClass_200` (North America, Europe, Asia, Middle East, Africa) — excludes South America and Australia edge locations to reduce cost.
+
+**When NOT to use CloudFront:**
+- **WebSocket-heavy applications** — CloudFront supports WebSockets but with idle connection timeout limits (up to 60 seconds) that may not suit persistent connections.
+- **gRPC services** — CloudFront has limited gRPC support; direct ALB or NLB is preferred.
+- **Single-region, low-latency APIs** — If all clients are co-located with the origin region, CloudFront adds an extra hop with no caching benefit. Direct ALB may yield lower latency.
+- **Ultra-low-traffic or internal-only applications** — CloudFront per-request pricing may exceed the cost benefit for apps with minimal traffic or no public exposure.
+
+**Known VPC Origin caveats:**
+- VPC Origins cannot be updated in-place while attached to a distribution — Terraform handles this via resource replacement.
+- The service-managed ENI requires at least one available IPv4 address in the ALB subnet. The `/27` Web-ALB subnets (30 usable IPs) provide ample capacity.
+
+**Consequences:**
+- *Security improvement:* ALB is no longer internet-facing. Only CloudFront can reach it via the VPC Origin ENI. Attack surface is reduced to the CloudFront edge, which includes AWS Shield Standard (free DDoS protection) automatically.
+- *Performance:* CloudFront edge locations serve TLS termination closer to clients, reducing first-byte latency for geographically distributed users. HTTP/2 and HTTP/3 are enabled at the edge.
+- *WAF readiness:* AWS WAF can be attached to the CloudFront distribution for bot mitigation, rate limiting, geo-blocking, and OWASP rule sets — without modifying the ALB or application.
+- *Cost:* CloudFront adds per-request ($0.0090/10K HTTPS requests for PriceClass_200 in Asia) and data transfer costs. For the demo workload with minimal traffic, this is negligible. The ALB data transfer to CloudFront via VPC Origin is free (same-region, private connectivity).
+- *Certificate duplication:* Each environment requires two ACM certificates (regional + us-east-1). Both are free and auto-renew via DNS validation.
+- *Operational complexity:* One additional layer to troubleshoot (CloudFront behaviors, cache invalidation, origin timeouts). Mitigated by using `CachingDisabled` for dynamic content, which makes CloudFront a transparent pass-through.
+
+**AWS ↔ Azure equivalent:** Azure Front Door with Private Link origin serves the same purpose — CDN edge with private connectivity to an internal Azure Application Gateway or Load Balancer. Azure Front Door also requires separate TLS certificates for the edge and origin.
+
+---
+
 ## AWS ↔ Azure Equivalence Table
 
 | Capability | AWS (this implementation) | Azure Equivalent |
@@ -212,7 +260,8 @@ New environments require only 4 files: `backend.tf` (state key), `providers.tf` 
 | Container registry | ECR | Azure Container Registry |
 | Container compute | ECS Fargate | Azure Container Instances / AKS |
 | ARM64 compute | Graviton (ARM64) | Ampere Altra (ARM64) VMs |
-| Load balancing | ALB | Azure Application Gateway |
+| CDN / edge delivery | CloudFront + VPC Origins | Azure Front Door + Private Link |
+| Load balancing | ALB (internal) | Azure Application Gateway (internal) |
 | DNS | Route 53 | Azure DNS |
 | IaC state | S3 + DynamoDB | Azure Storage Account + Blob lease |
 | CI/CD identity | GitHub Actions OIDC | GitHub Actions OIDC (identical) |

@@ -36,6 +36,12 @@ variable "certificate_arn" {
   default     = ""
 }
 
+variable "internal" {
+  description = "Whether the ALB is internal (true) or internet-facing (false)"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

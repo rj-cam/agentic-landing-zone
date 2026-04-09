@@ -30,3 +30,18 @@ provider "aws" {
     role_arn = data.terraform_remote_state.networking.outputs.dns_role_arn
   }
 }
+
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+  assume_role {
+    role_arn = "arn:aws:iam::${var.account_id}:role/OrganizationAccountAccessRole"
+  }
+  default_tags {
+    tags = {
+      Project     = "landing-zone"
+      Environment = "nonprod"
+      ManagedBy   = "terraform"
+    }
+  }
+}

@@ -28,8 +28,9 @@ module "workload" {
   source = "../../modules/workload"
 
   providers = {
-    aws     = aws
-    aws.dns = aws.dns
+    aws           = aws
+    aws.dns       = aws.dns
+    aws.us_east_1 = aws.us_east_1
   }
 
   environment               = "prod"

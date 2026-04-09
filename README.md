@@ -1,6 +1,6 @@
 # AWS Landing Zone Reference Architecture
 
-Multi-account AWS Landing Zone reference implementation showcasing cloud governance at scale. Provisions 5 accounts (Management, Security, Log Archive, Shared Services, Non-Prod, Prod) with preventive guardrails (SCPs), hub-and-spoke networking (Transit Gateway), centralised identity (IAM Identity Center), immutable logging, and sample workloads on ECS Fargate ARM64/Graviton. All infrastructure defined as Terraform IaC. Built using AI-augmented development with Claude Code.
+Multi-account AWS Landing Zone reference implementation showcasing cloud governance at scale. Provisions 5 accounts (Management, Security, Log Archive, Shared Services, Non-Prod, Prod) with preventive guardrails (SCPs), hub-and-spoke networking (Transit Gateway), centralised identity (IAM Identity Center), immutable logging, CloudFront with VPC Origins, and sample workloads on ECS Fargate ARM64/Graviton. All infrastructure defined as Terraform IaC. Built using AI-augmented development with Claude Code.
 
 ---
 
@@ -13,8 +13,8 @@ Multi-account AWS Landing Zone reference implementation showcasing cloud governa
 ![Landing Zone Setup Phases](docs/aws_lz_setup_phases.svg)
 
 For detailed architecture decisions, trade-offs, and AWS-to-Azure equivalences,
-see [ARCHITECTURE.md](ARCHITECTURE.md) (9 ADRs covering multi-account strategy,
-networking, VPC microsegmentation, VPC endpoints, SCPs, OIDC, and Terraform design).
+see [ARCHITECTURE.md](ARCHITECTURE.md) (12 ADRs covering multi-account strategy,
+networking, VPC microsegmentation, VPC endpoints, SCPs, OIDC, CloudFront, and Terraform design).
 
 ---
 
@@ -188,7 +188,9 @@ agentic-landing-zone/
 │       ├── variables.tf / outputs.tf / providers.tf / backend.tf
 │       └── README.md
 ├── modules/
-│   ├── alb/                            # Application Load Balancer module
+│   ├── alb/                            # Internal ALB module (TLS 1.3)
+│   │   ├── main.tf / variables.tf / outputs.tf
+│   ├── cloudfront/                     # CloudFront distribution with VPC Origins (ADR-012)
 │   │   ├── main.tf / variables.tf / outputs.tf
 │   ├── dns-record/                     # Route 53 DNS record module
 │   │   ├── main.tf / variables.tf / outputs.tf
@@ -196,7 +198,7 @@ agentic-landing-zone/
 │   │   ├── main.tf / variables.tf / outputs.tf
 │   ├── scp-policy/                     # Reusable SCP policy + attachment module
 │   │   ├── main.tf / variables.tf / outputs.tf
-│   └── vpc/                            # VPC with public/private subnets, NAT Gateway
+│   └── vpc/                            # VPC with 5-tier microsegmented subnets
 │       ├── main.tf / variables.tf / outputs.tf
 ├── scripts/
 │   ├── provision-foundation.sh         # Provision all foundation layers in order
@@ -207,17 +209,17 @@ agentic-landing-zone/
 │   └── teardown-workloads.bat          # Windows equivalent
 ├── workloads/
 │   ├── 01-nonprod/
-│   │   ├── main.tf                     # Non-Prod ECS Fargate, ALB, DNS
+│   │   ├── main.tf                     # Non-Prod CloudFront, ALB, ECS Fargate, DNS
 │   │   ├── variables.tf / outputs.tf / providers.tf / backend.tf
 │   │   └── README.md
 │   └── 02-prod/
-│       ├── main.tf                     # Production ECS Fargate, ALB, DNS
+│       ├── main.tf                     # Production CloudFront, ALB, ECS Fargate, DNS
 │       ├── variables.tf / outputs.tf / providers.tf / backend.tf
 │       └── README.md
 ├── docs/
 │   ├── aws_lz_reference_architecture.svg  # Architecture diagram
 │   └── aws_lz_setup_phases.svg            # Phase 0/1/2 setup flow
-├── ARCHITECTURE.md                     # Architecture Decision Records (9 ADRs)
+├── ARCHITECTURE.md                     # Architecture Decision Records (12 ADRs)
 ├── CLAUDE_CODE_LOG.md                  # AI-augmented development log + lessons learned
 ├── .gitignore
 └── README.md                           # This file
@@ -247,7 +249,8 @@ Six Service Control Policies enforce preventive guardrails across the organizati
 | S3 deny HTTP | State bucket + Log Archive | Rejects any S3 request not using TLS |
 | ECS exec disabled | All ECS services | Prevents interactive shell access to running containers |
 | Default EBS encryption | Shared Services, Non-Prod, Prod | All new EBS volumes encrypted by default (account-level) |
-| TLS 1.3 on ALBs | All internet-facing ALBs | Enforces modern TLS with HTTP→HTTPS redirect (ADR-010) |
+| CloudFront + VPC Origins | All workload ALBs | ALBs are internal; only CloudFront can reach them via VPC Origin ENI. Shield Standard included (ADR-012) |
+| TLS 1.3 on ALBs | All internal ALBs | Enforces modern TLS with HTTP→HTTPS redirect (ADR-010) |
 | IMDSv2 enforcement | Root OU (SCP) | Blocks EC2 instances without IMDSv2 token requirement |
 | No NAT Gateway | All workload VPCs | Private subnets have no internet route — AWS access via VPC Endpoints only (ADR-008) |
 
@@ -261,8 +264,9 @@ The networking layer implements a **hub-and-spoke** topology with **5-tier VPC m
 - **Spokes:** Each workload VPC uses dual CIDRs (/24 infra + /21 workloads) with 18 subnets across 3 AZs.
 - **Subnet tiers:** TGW (/28) → Web ALB (/27, public) → App Endpoint (/27, VPC endpoints) → App Compute (/23, ECS tasks) → Data (/27, reserved for RDS). Traffic flow enforced by NACLs.
 - **No NAT Gateway:** All AWS service access via VPC Endpoints (ADR-008) — ECR, ECS, CloudWatch Logs, STS, S3. Traffic stays on the AWS backbone.
-- **HTTPS:** ALBs terminate TLS 1.3 (ADR-010) with ACM certificates. HTTP redirects to HTTPS.
-- **DNS:** Route 53 in the Management account with cross-account IAM role for workload DNS records (`nonprod.therj.link`, `prod.therj.link`).
+- **CloudFront:** Each workload has a CloudFront distribution using VPC Origins (ADR-012) to connect to the internal ALB. No public ALB exposure — only CloudFront can reach the origin.
+- **HTTPS:** Internal ALBs terminate TLS 1.3 (ADR-010) with regional ACM certificates. CloudFront terminates TLS at the edge with `us-east-1` ACM certificates. HTTP redirects to HTTPS at both layers.
+- **DNS:** Route 53 in the Management account with cross-account IAM role. DNS records (`nonprod.therj.link`, `prod.therj.link`) point to CloudFront distributions.
 
 ---
 
@@ -347,7 +351,7 @@ The following enhancements are recommended before using this reference architect
 - **Security Hub** -- Enable across all accounts for continuous compliance posture assessment (CIS, PCI-DSS, AWS Foundational benchmarks). Free 30-day trial.
 - **GuardDuty** -- Enable for intelligent threat detection across accounts (anomalous API calls, compromised credentials, cryptocurrency mining). Free 30-day trial.
 - **AWS Config Rules** -- Deploy detective controls to complement SCPs (detect drift, audit resource configurations)
-- **AWS WAF** -- Attach Web Application Firewall rules to ALBs for OWASP Top 10 protection, rate limiting, and geo-blocking
+- **AWS WAF** -- Attach Web Application Firewall rules to CloudFront distributions for OWASP Top 10 protection, rate limiting, and geo-blocking
 - **Account vending machine** -- Automate new account creation with pre-configured guardrails using AWS Control Tower or a custom Terraform pipeline
 - **Break-glass IAM user** -- Create an emergency access path that bypasses Identity Center for disaster recovery scenarios
 - **SAML/OIDC federation** -- Integrate IAM Identity Center with your corporate identity provider (Okta, Azure AD/Entra ID, Ping)
@@ -357,7 +361,7 @@ The following enhancements are recommended before using this reference architect
 - **Multi-region DR** -- Replicate critical infrastructure (S3, DynamoDB state) to a secondary region for disaster recovery
 - **FinOps** -- Enable Cost Explorer, evaluate Savings Plans / Reserved Instances for steady-state workloads, enforce cost allocation tags via SCPs
 
-**Already implemented in this reference:** HTTPS with TLS 1.3 (ADR-010), VPC Endpoints replacing NAT Gateway (ADR-008), VPC microsegmentation with NACLs (ADR-009), S3 deny-HTTP policy, ECS exec disabled, default EBS encryption, 6 SCPs, cross-account OIDC CI/CD.
+**Already implemented in this reference:** CloudFront with VPC Origins (ADR-012), HTTPS with TLS 1.3 (ADR-010), VPC Endpoints replacing NAT Gateway (ADR-008), VPC microsegmentation with NACLs (ADR-009), S3 deny-HTTP policy, ECS exec disabled, default EBS encryption, 6 SCPs, cross-account OIDC CI/CD.
 
 ---
 
@@ -375,7 +379,8 @@ For teams evaluating multi-cloud strategies, the following table maps each AWS c
 | Container registry | ECR | Azure Container Registry |
 | Container compute | ECS Fargate | Azure Container Instances / AKS |
 | ARM64 compute | Graviton (ARM64) | Ampere Altra (ARM64) VMs |
-| Load balancing | ALB | Azure Application Gateway |
+| CDN / edge delivery | CloudFront + VPC Origins | Azure Front Door + Private Link |
+| Load balancing | ALB (internal) | Azure Application Gateway (internal) |
 | DNS | Route 53 | Azure DNS |
 | IaC state | S3 + DynamoDB | Azure Storage Account + Blob lease |
 | CI/CD identity | GitHub Actions OIDC | GitHub Actions OIDC (identical) |

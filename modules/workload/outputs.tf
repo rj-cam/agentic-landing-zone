@@ -8,6 +8,16 @@ output "alb_dns_name" {
   value       = module.alb.alb_dns_name
 }
 
+output "cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution"
+  value       = module.cloudfront.distribution_id
+}
+
+output "cloudfront_domain_name" {
+  description = "Domain name of the CloudFront distribution"
+  value       = module.cloudfront.distribution_domain_name
+}
+
 output "ecs_cluster_name" {
   description = "Name of the ECS cluster"
   value       = module.ecs.cluster_name

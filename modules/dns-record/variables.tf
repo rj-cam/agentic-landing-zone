@@ -8,13 +8,13 @@ variable "record_name" {
   type        = string
 }
 
-variable "alb_dns_name" {
-  description = "ALB DNS name for alias target"
+variable "alias_dns_name" {
+  description = "DNS name for alias target (ALB or CloudFront distribution)"
   type        = string
 }
 
-variable "alb_zone_id" {
-  description = "ALB hosted zone ID for alias target"
+variable "alias_zone_id" {
+  description = "Hosted zone ID for alias target (ALB or CloudFront distribution)"
   type        = string
 }
 
